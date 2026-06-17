@@ -1,23 +1,114 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'SubjectRegistrationListPage.dart';
 import 'MySubjectPage.dart';
 
-class StudentOpenRegistrationPage extends StatelessWidget {
-  const StudentOpenRegistrationPage({super.key});
+class StudentOpenRegistrationPage extends StatefulWidget {
+  final String? studentId;
+  final String? studentName;
+  final String? matricId;
+
+  const StudentOpenRegistrationPage({
+    super.key,
+    this.studentId,
+    this.studentName,
+    this.matricId,
+  });
+
+  @override
+  State<StudentOpenRegistrationPage> createState() =>
+      _StudentOpenRegistrationPageState();
+}
+
+class _StudentOpenRegistrationPageState
+    extends State<StudentOpenRegistrationPage> {
+  late String _studentId;
+  late String _studentName;
+  late String _matricId;
+  bool _isLoading = true;
+
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeStudentData();
+  }
+
+  void _initializeStudentData() {
+    // Guna data dari widget (dihantar dari StudentDashboard)
+    _studentId = widget.studentId ?? 'CB23048';
+    _studentName = widget.studentName ?? 'Student';
+    _matricId = widget.matricId ?? 'CB23048';
+
+    // Kalau takde data, ambil dari Firebase
+    if (widget.studentId == null || widget.studentName == null) {
+      _fetchStudentDataFromFirebase();
+    } else {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchStudentDataFromFirebase() async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection('User')
+          .where('Username', isEqualTo: _studentId)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        snapshot = await _firestore
+            .collection('Student')
+            .where('StudentID', isEqualTo: _studentId)
+            .limit(1)
+            .get();
+      }
+
+      if (snapshot.docs.isNotEmpty) {
+        final data = snapshot.docs.first.data() as Map<String, dynamic>;
+        setState(() {
+          _studentName = data['FullName'] ?? data['StudentName'] ?? _studentId;
+          _studentId = data['StudentID'] ?? data['Username'] ?? _studentId;
+          _matricId = data['MatricId'] ?? data['Username'] ?? _studentId;
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      print('❌ Error fetching student data: $e');
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFE8F5FD),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Color(0xFF1976D2)),
+              SizedBox(height: 16),
+              Text('Loading...', style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFE8F5FD,
-      ), // Light baby blue background matching design system
+      backgroundColor: const Color(0xFFE8F5FD),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Inline Header Section (Replaces default AppBar layout)
+              // ✅ Header - SAMA macam asal (tapi guna nama student yang login)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -35,16 +126,16 @@ class StudentOpenRegistrationPage extends StatelessWidget {
                   ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children: [
                       Text(
-                        'CB23048',
-                        style: TextStyle(
+                        _studentName,  // ✅ Guna nama student yang login
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF466289),
                         ),
                       ),
-                      Icon(
+                      const Icon(
                         Icons.keyboard_arrow_down,
                         color: Color(0xFF1976D2),
                         size: 20,
@@ -55,7 +146,7 @@ class StudentOpenRegistrationPage extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
-              // Page Title Label
+              // ✅ Page Title - SAMA
               const Text(
                 'OPEN REGISTRATION',
                 style: TextStyle(
@@ -67,7 +158,7 @@ class StudentOpenRegistrationPage extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Central University Badge Circle Image
+              // ✅ Logo - SAMA
               Container(
                 width: 150,
                 height: 150,
@@ -75,7 +166,7 @@ class StudentOpenRegistrationPage extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Color.fromRGBO(0, 0, 0, 0.1),
+                      color: const Color.fromRGBO(0, 0, 0, 0.1),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -100,46 +191,51 @@ class StudentOpenRegistrationPage extends StatelessWidget {
               ),
               const SizedBox(height: 40),
 
-              // Menu Selection Block 1: Subject Registration
+              // ✅ Menu Selection Block 1 - SAMA
               _buildLargeSelectionCard(
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const SubjectRegistrationListPage(),
+                      builder: (_) => SubjectRegistrationListPage(
+                        studentId: _studentId,      // ✅ Pass studentId
+                        studentName: _studentName,  // ✅ Pass studentName
+                        matricId: _matricId,        // ✅ Pass matricId
+                      ),
                     ),
                   );
                 },
                 iconPathOrWidget: const Icon(
-                  Icons
-                      .assignment_ind_outlined, // Custom academic assignment asset simulation
+                  Icons.assignment_ind_outlined,
                   size: 50,
                   color: Color(0xFF6C6C6C),
                 ),
                 titleText: 'SUBJECT\nREGISTRATION',
-                textColor: const Color(
-                  0xFF0D47A1,
-                ), // Exact dark slate blue font shade
+                textColor: const Color(0xFF0D47A1),
               ),
               const SizedBox(height: 24),
 
-              // Menu Selection Block 2: My Subjects
+              // ✅ Menu Selection Block 2 - SAMA
               _buildLargeSelectionCard(
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const MySubjectPage()),
+                    MaterialPageRoute(
+                      builder: (_) => MySubjectPage(
+                        studentId: _studentId,      // ✅ Pass studentId
+                        studentName: _studentName,  // ✅ Pass studentName
+                        matricId: _matricId,        // ✅ Pass matricId
+                      ),
+                    ),
                   );
                 },
                 iconPathOrWidget: const Icon(
-                  Icons.groups_rounded, // Styled group asset match
+                  Icons.groups_rounded,
                   size: 50,
                   color: Colors.black,
                 ),
                 titleText: 'MY SUBJECTS',
-                textColor: const Color(
-                  0xFF800000,
-                ), // Precise dark deep wine red tone
+                textColor: const Color(0xFF800000),
               ),
               const SizedBox(height: 24),
             ],
@@ -149,7 +245,7 @@ class StudentOpenRegistrationPage extends StatelessWidget {
     );
   }
 
-  // Generates card layouts corresponding precisely to the layout block specs
+  // ✅ SAME card layout
   Widget _buildLargeSelectionCard({
     required VoidCallback onTap,
     required Widget iconPathOrWidget,
@@ -164,7 +260,7 @@ class StudentOpenRegistrationPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.08),
+            color: const Color.fromRGBO(0, 0, 0, 0.08),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -179,11 +275,8 @@ class StudentOpenRegistrationPage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 32.0),
             child: Row(
               children: [
-                // Left hand illustrative vector container
                 SizedBox(width: 60, child: iconPathOrWidget),
                 const SizedBox(width: 16),
-
-                // Right aligned label formatting
                 Expanded(
                   child: Text(
                     titleText,

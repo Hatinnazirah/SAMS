@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'FacultyRegistrarDashboard.dart';
 import 'StudentDashboard.dart';
 
@@ -20,6 +22,10 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   UserRole? _selectedRole;
+
+  // Firebase instances
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   void dispose() {
@@ -43,34 +49,87 @@ class _LoginPageState extends State<LoginPage> {
       _errorMessage = '';
     });
 
-    await Future.delayed(const Duration(seconds: 1)); // Simulate API call
+    try {
+      final username = _usernameController.text.trim();
+      final password = _passwordController.text.trim();
 
-    setState(() {
-      _isLoading = false;
-    });
+      if (username.isEmpty || password.isEmpty) {
+        setState(() {
+          _errorMessage = 'Username and password are required';
+          _isLoading = false;
+        });
+        return;
+      }
 
-    final username = _usernameController.text.trim();
-    final password = _passwordController.text.trim();
+      // 1. Find user in Firestore by Username
+      QuerySnapshot userQuery = await _firestore
+          .collection('User')
+          .where('Username', isEqualTo: username)
+          .limit(1)
+          .get();
 
-    if (username.isEmpty || password.isEmpty) {
+      if (userQuery.docs.isEmpty) {
+        setState(() {
+          _errorMessage = 'User not found. Please check your username.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 2. Get user data from Firestore
+      final userDoc = userQuery.docs.first;
+      final userData = userDoc.data() as Map<String, dynamic>;
+
+      // 3. Check password (using Password field from Firestore)
+      final storedPassword = userData['Password'] ?? '';
+      if (password != storedPassword) {
+        setState(() {
+          _errorMessage = 'Incorrect password. Please try again.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 4. Check role
+      final userRoleString = userData['Role'] ?? '';
+      final UserRole userRole = _stringToUserRole(userRoleString);
+
+      if (userRole != _selectedRole) {
+        setState(() {
+          _errorMessage = 'Invalid role for this user. Please select correct role.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 5. Navigate based on role
+      _navigateByRole(userRole, username);
+
+    } catch (e) {
       setState(() {
-        _errorMessage = 'Username and password are required';
+        _isLoading = false;
+        _errorMessage = 'An error occurred: $e';
       });
-      return;
+      print('❌ Login error: $e');
     }
+  }
 
-    if (_selectedRole == UserRole.student &&
-        username == 'CB23048' &&
-        password == 'hatin123') {
-      _navigateByRole(UserRole.student, username);
-    } else if (_selectedRole == UserRole.facultyRegistrar &&
-        username == 'registrar' &&
-        password == 'password') {
-      _navigateByRole(UserRole.facultyRegistrar, username);
-    } else {
-      setState(() {
-        _errorMessage = 'Invalid username or password';
-      });
+  UserRole _stringToUserRole(String role) {
+    switch (role.toLowerCase()) {
+      case 'student':
+        return UserRole.student;
+      case 'faculty registrar':
+      case 'faculty_registrar':
+        return UserRole.facultyRegistrar;
+      case 'pusatadab':
+      case 'pusat_adab':
+        return UserRole.pusatAdab;
+      case 'lecturer':
+        return UserRole.lecturer;
+      case 'treasury':
+        return UserRole.treasury;
+      default:
+        return UserRole.student;
     }
   }
 
@@ -91,6 +150,12 @@ class _LoginPageState extends State<LoginPage> {
         );
         break;
       default:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StudentDashboard(username: username),
+          ),
+        );
         break;
     }
   }
@@ -120,7 +185,7 @@ class _LoginPageState extends State<LoginPage> {
       borderRadius: BorderRadius.circular(15),
       boxShadow: [
         BoxShadow(
-          color: Color.fromRGBO(0, 0, 0, 0.06),
+          color: const Color.fromRGBO(0, 0, 0, 0.06),
           spreadRadius: 1,
           blurRadius: 8,
           offset: const Offset(0, 4),
@@ -132,7 +197,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F5FD), // Light blue background from UI
+      backgroundColor: const Color(0xFFE8F5FD),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -146,7 +211,6 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 10),
-                  // Welcome Header
                   const Text(
                     'WELCOME TO',
                     style: TextStyle(
@@ -158,8 +222,6 @@ class _LoginPageState extends State<LoginPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
-
-                  // System Title
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.0),
                     child: Text(
@@ -174,8 +236,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // Circular System Logo
                   Container(
                     width: 140,
                     height: 140,
@@ -183,7 +243,7 @@ class _LoginPageState extends State<LoginPage> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Color.fromRGBO(0, 0, 0, 0.1),
+                          color: const Color.fromRGBO(0, 0, 0, 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -194,7 +254,6 @@ class _LoginPageState extends State<LoginPage> {
                         'assets/SAMS LOGO.png',
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          // Fallback container if the logo image asset isn't added yet
                           return Container(
                             color: const Color(0xFF1E3A60),
                             child: const Icon(
@@ -208,8 +267,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // LOGIN Label
                   const Text(
                     'LOGIN',
                     style: TextStyle(
@@ -220,8 +277,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // Username Field Label & Input
                   _buildFieldLabel('Username:'),
                   Container(
                     decoration: _fieldBoxDecoration(),
@@ -235,21 +290,20 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty)
+                        if (value == null || value.isEmpty) {
                           return 'Please enter username';
+                        }
                         return null;
                       },
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Role Dropdown Label & Input
                   _buildFieldLabel('Role:'),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: _fieldBoxDecoration(),
                     child: DropdownButtonFormField<UserRole>(
-                      initialValue: _selectedRole,
+                      value: _selectedRole,
                       icon: const Icon(
                         Icons.keyboard_arrow_down,
                         color: Color(0xFF0056B3),
@@ -291,14 +345,14 @@ class _LoginPageState extends State<LoginPage> {
                         });
                       },
                       validator: (value) {
-                        if (value == null) return 'Please select your role';
+                        if (value == null) {
+                          return 'Please select your role';
+                        }
                         return null;
                       },
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Password Field Label & Input
                   _buildFieldLabel('Password:'),
                   Container(
                     decoration: _fieldBoxDecoration(),
@@ -326,15 +380,14 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty)
+                        if (value == null || value.isEmpty) {
                           return 'Please enter password';
+                        }
                         return null;
                       },
                     ),
                   ),
                   const SizedBox(height: 48),
-
-                  // Sign In Action Button
                   SizedBox(
                     width: 140,
                     height: 48,
@@ -342,7 +395,7 @@ class _LoginPageState extends State<LoginPage> {
                       decoration: BoxDecoration(
                         boxShadow: [
                           BoxShadow(
-                            color: Color.fromRGBO(0, 0, 0, 0.15),
+                            color: const Color.fromRGBO(0, 0, 0, 0.15),
                             blurRadius: 6,
                             offset: const Offset(0, 3),
                           ),
@@ -351,9 +404,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(
-                            0xFF466289,
-                          ), // Matching deep navy button color
+                          backgroundColor: const Color(0xFF466289),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -379,8 +430,6 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
-
-                  // Error Alert Box
                   if (_errorMessage.isNotEmpty) ...[
                     const SizedBox(height: 20),
                     Text(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sams_app/domain/ManageStudentRegistration/RegistrationModel.dart';
-import 'package:sams_app/controller/ManageStudentRegistration/RegistrationController.dart';
+import 'package:sams_app/controllers/ManageStudentRegistration/RegistrationController.dart';
 import 'AddSubjectPage.dart';
 
 // Remove overscroll glow for a smoother feel
@@ -14,7 +14,16 @@ class NoGlowScrollBehavior extends ScrollBehavior {
 }
 
 class SubjectRegistrationListPage extends StatefulWidget {
-  const SubjectRegistrationListPage({super.key});
+  final String? studentId;
+  final String? studentName;
+  final String? matricId;
+
+  const SubjectRegistrationListPage({
+    super.key,
+    this.studentId,
+    this.studentName,
+    this.matricId,
+  });
 
   @override
   State<SubjectRegistrationListPage> createState() =>
@@ -28,11 +37,18 @@ class _SubjectRegistrationListPageState
   List<SubjectModel> _filteredSubjects = [];
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
+  
+  late String _studentId;
 
   @override
   void initState() {
     super.initState();
+    _initializeStudentData();
     _loadSubjects();
+  }
+
+  void _initializeStudentData() {
+    _studentId = widget.studentId ?? 'CB23048';
   }
 
   Future<void> _loadSubjects() async {
@@ -54,16 +70,20 @@ class _SubjectRegistrationListPageState
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFE8F5FD,
-      ), // Light baby blue system background matching mockups
+      backgroundColor: const Color(0xFFE8F5FD),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Custom Clean Top App Bar Layout
+            // ✅ Custom Clean Top App Bar - SAME AS BEFORE
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 24.0,
@@ -100,7 +120,7 @@ class _SubjectRegistrationListPageState
               ),
             ),
 
-            // Mini Circular Branding Emblem Row
+            // ✅ Mini Circular Branding Emblem - SAME
             Container(
               width: 75,
               height: 75,
@@ -108,7 +128,7 @@ class _SubjectRegistrationListPageState
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Color.fromRGBO(0, 0, 0, 0.08),
+                    color: const Color.fromRGBO(0, 0, 0, 0.08),
                     blurRadius: 6,
                     offset: const Offset(0, 3),
                   ),
@@ -133,15 +153,13 @@ class _SubjectRegistrationListPageState
             ),
             const SizedBox(height: 24),
 
-            // Inline Subject Search Capsule Container
+            // ✅ Search Bar - SAME
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Container(
                 height: 46,
                 decoration: BoxDecoration(
-                  color: const Color(
-                    0xFFCBD6E2,
-                  ), // Perfect flat slate grey color matching search mockup
+                  color: const Color(0xFFCBD6E2),
                   borderRadius: BorderRadius.circular(25),
                 ),
                 child: TextField(
@@ -174,7 +192,7 @@ class _SubjectRegistrationListPageState
             ),
             const SizedBox(height: 20),
 
-            // Main Dynamic Scrollable List Frame (improved UX)
+            // ✅ Subject List - SAME
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -225,7 +243,10 @@ class _SubjectRegistrationListPageState
                                             ? () => Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
-                                                    builder: (_) => AddSubjectPage(subject: subject),
+                                                    builder: (_) => AddSubjectPage(
+                                                      subject: subject,
+                                                      studentId: _studentId,
+                                                    ),
                                                   ),
                                                 ).then((_) => _loadSubjects())
                                             : null,

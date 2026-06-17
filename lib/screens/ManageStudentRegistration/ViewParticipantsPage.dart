@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sams_app/domain/ManageStudentRegistration/RegistrationModel.dart';
-import 'package:sams_app/controller/ManageStudentRegistration/RegistrationController.dart';
+import 'package:sams_app/controllers/ManageStudentRegistration/RegistrationController.dart';
 
 class ViewParticipantsPage extends StatefulWidget {
   const ViewParticipantsPage({super.key});
@@ -11,37 +12,114 @@ class ViewParticipantsPage extends StatefulWidget {
 
 class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
   final RegistrationController _controller = RegistrationController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
   List<SubjectModel> _subjects = [];
   List<RegistrationModel> _participants = [];
   bool _isLoadingSubjects = true;
   bool _isLoadingParticipants = false;
+  
+  // Cache for student names
+  final Map<String, String> _studentNameCache = {};
+  final Map<String, String> _studentMatricCache = {};
 
   @override
   void initState() {
     super.initState();
-    _controller.initMockData();
     _loadSubjects();
   }
 
+  // ✅ Load subjects from Firebase
   Future<void> _loadSubjects() async {
     setState(() => _isLoadingSubjects = true);
     _subjects = await _controller.getAvailableSubjects();
     setState(() => _isLoadingSubjects = false);
   }
 
+  // ✅ Load participants from Firebase with student names
   Future<void> _loadParticipants(String subjectId) async {
     setState(() => _isLoadingParticipants = true);
     _participants = await _controller.getSubjectParticipants(subjectId);
+    
+    // ✅ Fetch student names for each participant from Firebase
+    for (var participant in _participants) {
+      await _fetchStudentName(participant.studentId);
+    }
+    
     setState(() => _isLoadingParticipants = false);
   }
 
-  // Displays student participants matching the visual style of your popup modals
+  // ✅ Fetch student name from Firebase Student collection
+  Future<void> _fetchStudentName(String studentId) async {
+    if (_studentNameCache.containsKey(studentId)) return;
+    
+    try {
+      // Try Student collection first
+      QuerySnapshot snapshot = await _firestore
+          .collection('Student')
+          .where('StudentID', isEqualTo: studentId)
+          .limit(1)
+          .get();
+      
+      if (snapshot.docs.isEmpty) {
+        // Try by MatricId
+        snapshot = await _firestore
+            .collection('Student')
+            .where('MatricId', isEqualTo: studentId)
+            .limit(1)
+            .get();
+      }
+      
+      if (snapshot.docs.isEmpty) {
+        // Try User collection
+        snapshot = await _firestore
+            .collection('User')
+            .where('Username', isEqualTo: studentId)
+            .limit(1)
+            .get();
+      }
+      
+      if (snapshot.docs.isNotEmpty) {
+        final data = snapshot.docs.first.data() as Map<String, dynamic>;
+        final name = data['StudentName'] ?? 
+                     data['FullName'] ?? 
+                     data['Name'] ?? 
+                     studentId;
+        final matric = data['MatricId'] ?? 
+                      data['Username'] ?? 
+                      studentId;
+        _studentNameCache[studentId] = name;
+        _studentMatricCache[studentId] = matric;
+        print('✅ Found student: $name ($studentId)');
+      } else {
+        _studentNameCache[studentId] = studentId;
+        _studentMatricCache[studentId] = studentId;
+        print('⚠️ Student not found: $studentId');
+      }
+    } catch (e) {
+      print('❌ Error fetching student: $e');
+      _studentNameCache[studentId] = studentId;
+      _studentMatricCache[studentId] = studentId;
+    }
+  }
+
+  // ✅ Get student name from cache
+  String _getStudentName(String studentId) {
+    return _studentNameCache[studentId] ?? studentId;
+  }
+
+  // ✅ Get student matric from cache
+  String _getStudentMatric(String studentId) {
+    return _studentMatricCache[studentId] ?? studentId;
+  }
+
+  // ✅ Show participants modal
   void _showParticipantsModal(
     BuildContext context,
     SubjectModel subject,
   ) async {
-    // Initiate non-blocking async payload fetch
-    _loadParticipants(subject.subjectId);
+    // Load participants
+    await _loadParticipants(subject.subjectId);
 
     showModalBottomSheet(
       context: context,
@@ -50,17 +128,10 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
       builder: (BuildContext colContext) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
-            // Re-sync parent async loading variables to modal view container
-            if (_isLoadingParticipants) {
-              Future.delayed(const Duration(milliseconds: 100), () {
-                if (mounted) setModalState(() {});
-              });
-            }
-
             return Container(
               height: MediaQuery.of(context).size.height * 0.75,
               decoration: const BoxDecoration(
-                color: Color(0xFFDCE6F5), // System light-tint background
+                color: Color(0xFFDCE6F5),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
               ),
               padding: const EdgeInsets.symmetric(
@@ -74,13 +145,13 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
                     width: 40,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: Color.fromRGBO(110, 126, 149, 0.4),
+                      color: const Color.fromRGBO(110, 126, 149, 0.4),
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   const SizedBox(height: 18),
 
-                  // Subject Code Header Identification
+                  // Subject Code Header
                   Text(
                     subject.subjectCode,
                     style: const TextStyle(
@@ -100,7 +171,7 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Enrolled counter label badge style
+                  // Enrolled counter
                   Text(
                     '${_participants.length} Active Participants',
                     style: const TextStyle(
@@ -115,7 +186,7 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
                     thickness: 1.2,
                   ),
 
-                  // Core list dynamic state builder
+                  // ✅ Participant List
                   Expanded(
                     child: _isLoadingParticipants
                         ? const Center(child: CircularProgressIndicator())
@@ -133,6 +204,9 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
                             itemCount: _participants.length,
                             itemBuilder: (context, idx) {
                               final p = _participants[idx];
+                              final studentName = _getStudentName(p.studentId);
+                              final studentMatric = _getStudentMatric(p.studentId);
+                              
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(
@@ -148,31 +222,61 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
                                     horizontal: 20,
                                     vertical: 4,
                                   ),
-                                  leading: const CircleAvatar(
-                                    backgroundColor: Color(0xFFDCE6F5),
-                                    child: Icon(
-                                      Icons.person,
-                                      color: Color(0xFF0A2E5C),
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.blue.shade100,
+                                    child: Text(
+                                      studentName.isNotEmpty
+                                          ? studentName[0].toUpperCase()
+                                          : 'S',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue.shade800,
+                                      ),
                                     ),
                                   ),
                                   title: Text(
-                                    p.studentName.toUpperCase(),
+                                    studentName,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                                      fontSize: 14,
                                       color: Colors.black,
                                     ),
                                   ),
-                                  subtitle: Text(
-                                    p.matricId,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF556477),
-                                    ),
+                                  subtitle: Row(
+                                    children: [
+                                      Text(
+                                        'ID: $studentMatric',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF556477),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade50,
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          'Approved',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.green.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   trailing: const Icon(
-                                    Icons.check_circle_outline,
+                                    Icons.check_circle,
                                     color: Colors.green,
+                                    size: 20,
                                   ),
                                 ),
                               );
@@ -190,7 +294,6 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Exact UI theme styling constants
     const Color pageBackgroundColor = Color(0xFFDCE6F5);
     const Color darkText = Colors.black;
 
@@ -217,7 +320,7 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
                 ],
               ),
 
-              // Title Header text matching application standard typography
+              // Title Header
               const Text(
                 'VIEW PARTICIPANTS',
                 style: TextStyle(
@@ -230,46 +333,33 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
               ),
               const SizedBox(height: 16),
 
-              // Official UI Circle branding element layout
+              // ✅ Logo - SAMS LOGO (same as other pages)
               Container(
                 width: 100,
                 height: 100,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF0A2E5C),
                   shape: BoxShape.circle,
                 ),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.school_outlined,
-                      size: 30,
-                      color: Color(0xFF7CD4FD),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'UMPSA',
-                      style: TextStyle(
-                        color: Color(0xFF7CD4FD),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      'STUDENT ACADEMIC\nMANAGEMENT SYSTEM',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 4.5,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/SAMS LOGO.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: const Color(0xFF0F3460),
+                        child: const Icon(
+                          Icons.school,
+                          size: 34,
+                          color: Color(0xFF76C4EE),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
 
-              // Core Module Subjects Content Panel
+              // ✅ Subject List
               Expanded(
                 child: _isLoadingSubjects
                     ? const Center(child: CircularProgressIndicator())
@@ -299,7 +389,7 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
                                   borderRadius: BorderRadius.circular(24),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Color.fromRGBO(0, 0, 0, 0.06),
+                                      color: const Color.fromRGBO(0, 0, 0, 0.06),
                                       blurRadius: 6,
                                       offset: const Offset(0, 3),
                                     ),
@@ -312,7 +402,6 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    // Layout code description elements
                                     Expanded(
                                       child: Text(
                                         '${subject.subjectCode}  ${subject.subjectName.toUpperCase()}',
@@ -324,9 +413,6 @@ class _ViewParticipantsPageState extends State<ViewParticipantsPage> {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-
-                                    // Forward chevron layout helper indicator icon
                                     const Icon(
                                       Icons.chevron_right,
                                       color: Color(0xFF556477),

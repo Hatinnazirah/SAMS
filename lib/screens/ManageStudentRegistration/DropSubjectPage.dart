@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:sams_app/domain/ManageStudentRegistration/RegistrationModel.dart';
-import 'package:sams_app/controller/ManageStudentRegistration/RegistrationController.dart';
+import 'package:sams_app/controllers/ManageStudentRegistration/RegistrationController.dart';
 
 class DropSubjectPage extends StatefulWidget {
   final RegistrationModel registration;

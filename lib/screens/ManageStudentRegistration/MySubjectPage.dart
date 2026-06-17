@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sams_app/domain/ManageStudentRegistration/RegistrationModel.dart';
-import 'package:sams_app/controller/ManageStudentRegistration/RegistrationController.dart';
+import 'package:sams_app/controllers/ManageStudentRegistration/RegistrationController.dart';
 import 'DropSubjectPage.dart';
 
 class MySubjectPage extends StatefulWidget {
-  const MySubjectPage({super.key});
+  final String? studentId;
+  final String? studentName;
+  final String? matricId;
+
+  const MySubjectPage({
+    super.key, 
+    this.studentId,
+    this.studentName,
+    this.matricId,
+  });
 
   @override
   State<MySubjectPage> createState() => _MySubjectPageState();
@@ -12,8 +22,14 @@ class MySubjectPage extends StatefulWidget {
 
 class _MySubjectPageState extends State<MySubjectPage> {
   final RegistrationController _controller = RegistrationController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
   List<RegistrationModel> _registrations = [];
   bool _isLoading = true;
+  String? _errorMessage;
+
+  // Get student ID from widget or use default
+  String get _studentId => widget.studentId ?? 'CB23048';
 
   @override
   void initState() {
@@ -21,21 +37,59 @@ class _MySubjectPageState extends State<MySubjectPage> {
     _loadRegisteredSubjects();
   }
 
+  // ============ FIREBASE METHODS ============
+
+  // Load registered subjects from Firebase - NO DUMMY DATA
   Future<void> _loadRegisteredSubjects() async {
-    setState(() => _isLoading = true);
-    _registrations = await _controller.getRegisteredSubjects('STUDENT001');
-    setState(() => _isLoading = false);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Load from Firebase using RegistrationController
+      _registrations = await _controller.getRegisteredSubjects(_studentId);
+      
+      // If no registrations found, check if student exists
+      if (_registrations.isEmpty) {
+        final studentDoc = await _firestore
+            .collection('User')
+            .where('Username', isEqualTo: _studentId)
+            .limit(1)
+            .get();
+        
+        if (studentDoc.docs.isEmpty) {
+          setState(() {
+            _errorMessage = 'Student not found in Firebase. Please check your ID.';
+          });
+        }
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+      
+      print('✅ Loaded ${_registrations.length} registrations from Firebase for student: $_studentId');
+      
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error loading registrations from Firebase: $e';
+      });
+      print('❌ Error loading registrations from Firebase: $e');
+    }
   }
+
+  // ============ UI METHODS ============
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Exactly matches the system baby blue background canvas color
       backgroundColor: const Color(0xFFDDE7F5),
       body: SafeArea(
         child: Column(
           children: [
-            // Custom Layout Header Block matching the design system blueprint
+            // Header
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 24.0,
@@ -70,7 +124,7 @@ class _MySubjectPageState extends State<MySubjectPage> {
               ),
             ),
 
-            // Academic/Curriculum Subject Selection Custom Tabs
+            // Academic/Curriculum Subject Selection Tabs
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 24.0,
@@ -85,9 +139,7 @@ class _MySubjectPageState extends State<MySubjectPage> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(
-                        0xFFBFCAD6,
-                      ), // Inactive gray-blue background pill
+                      color: const Color(0xFFBFCAD6),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
@@ -113,12 +165,42 @@ class _MySubjectPageState extends State<MySubjectPage> {
             ),
             const SizedBox(height: 16),
 
-            // Primary Content Block - Render Core Dynamic Subject Canvas List
+            // Main Content
             Expanded(
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
                         color: Color(0xFFB21212),
+                      ),
+                    )
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            size: 54,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                            child: Text(
+                              _errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: _loadRegisteredSubjects,
+                            child: const Text('Retry'),
+                          ),
+                        ],
                       ),
                     )
                   : _registrations.isEmpty
@@ -133,10 +215,18 @@ class _MySubjectPageState extends State<MySubjectPage> {
                           ),
                           SizedBox(height: 12),
                           Text(
-                            'No Registered Subjects Listed',
+                            'No Registered Subjects Found',
                             style: TextStyle(
                               color: Colors.grey,
                               fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'You have not registered for any subjects yet.',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 14,
                             ),
                           ),
                         ],
@@ -151,17 +241,13 @@ class _MySubjectPageState extends State<MySubjectPage> {
                       itemBuilder: (context, index) {
                         final registration = _registrations[index];
 
-                        // Mock section assignments safely when properties map empty parameters
-                        String lectureSection = "01";
-                        String labSection = "01A";
+                        // Get lecture and lab sections from Firebase data
+                        final String lectureSection = registration.lectureSection ?? 'N/A';
+                        final String labSection = registration.labSection ?? 'N/A';
 
-                        // Dynamic check to support edge structures like Undergraduate Project
-                        if (registration.subjectCode.toUpperCase().contains(
-                          "BCC3012",
-                        )) {
-                          lectureSection = "01";
-                          labSection = "-";
-                        }
+                        // Get status from Firebase
+                        final String statusText = registration.getStatusDisplay();
+                        final Color statusColor = registration.getStatusBadgeColor();
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 16.0),
@@ -171,7 +257,7 @@ class _MySubjectPageState extends State<MySubjectPage> {
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: Color.fromRGBO(0, 0, 0, 0.06),
+                                color: const Color.fromRGBO(0, 0, 0, 0.06),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -180,12 +266,11 @@ class _MySubjectPageState extends State<MySubjectPage> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              // Left Column Content: Subject Metadata Fields
+                              // Left Column: Subject Info
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Subject Code & System String Title
                                     Text(
                                       '${registration.subjectCode}  ${registration.subjectName.toUpperCase()}',
                                       maxLines: 2,
@@ -198,8 +283,6 @@ class _MySubjectPageState extends State<MySubjectPage> {
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-
-                                    // Lecture Section Subfield Layout Details
                                     RichText(
                                       text: TextSpan(
                                         style: const TextStyle(
@@ -221,8 +304,6 @@ class _MySubjectPageState extends State<MySubjectPage> {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-
-                                    // Lab Section Subfield Layout Details
                                     RichText(
                                       text: TextSpan(
                                         style: const TextStyle(
@@ -241,67 +322,93 @@ class _MySubjectPageState extends State<MySubjectPage> {
                                         ],
                                       ),
                                     ),
+                                    // Credit Hours
+                                    const SizedBox(height: 4),
+                                    RichText(
+                                      text: TextSpan(
+                                        style: const TextStyle(
+                                          color: Color.fromARGB(255, 109, 109, 109),
+                                          fontSize: 14,
+                                        ),
+                                        children: [
+                                          const TextSpan(text: 'Credit Hours: '),
+                                          TextSpan(
+                                            text: '${registration.creditHours}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              color: Color.fromARGB(255, 109, 109, 109),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
 
-                              // Right Column Content: Status Indicator Tag alongside Drop Action Pill
+                              // Right Column: Status + Drop Button
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  // Status Approval Indicator text weight line
-                                  Text(
-                                    index == 0 ? 'Pending Approval' : 'Approve',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontStyle: FontStyle.italic,
-                                      fontWeight: FontWeight.bold,
-                                      color: index == 0
-                                          ? const Color.fromARGB(255, 107, 107, 107) // Pending Approval Silver
-                                          : const Color.fromARGB(255, 76, 209, 83), // Approve Green Tone
+                                  // Status Indicator
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      statusText,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: statusColor,
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 8),
 
-                                  // Exact Mini Rounded Pillar DROP Call-To-Action Button Block
-                                  SizedBox(
-                                    height: 34,
-                                    width: 82,
-                                    child: ElevatedButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => DropSubjectPage(
-                                              registration: registration,
+                                  // Drop Button (only if status is pending or approved)
+                                  if (registration.status != RegistrationStatus.reject)
+                                    SizedBox(
+                                      height: 34,
+                                      width: 82,
+                                      child: ElevatedButton(
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => DropSubjectPage(
+                                                registration: registration,
+                                              ),
                                             ),
-                                          ),
-                                        ).then(
-                                          (_) => _loadRegisteredSubjects(),
-                                        );
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(255, 199, 24, 24), // Deep crimson red
-                                        foregroundColor: Colors.white,
-                                        elevation: 0,
-                                        padding: EdgeInsets.zero,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            16,
+                                          ).then(
+                                            (_) => _loadRegisteredSubjects(),
+                                          );
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color.fromARGB(255, 199, 24, 24),
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
                                           ),
                                         ),
-                                      ),
-                                      child: const Text(
-                                        'DROP',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 14,
-                                          letterSpacing: 0.5,
+                                        child: const Text(
+                                          'DROP',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 14,
+                                            letterSpacing: 0.5,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ],

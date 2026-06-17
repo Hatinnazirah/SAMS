@@ -3,15 +3,27 @@ import 'ManageRegistrationPage.dart';
 import 'ViewParticipantsPage.dart';
 
 class FacultyOpenRegistrationPage extends StatelessWidget {
-  const FacultyOpenRegistrationPage({super.key});
+  final String? username;
+  final String? fullName;
+  final String? email;
+
+  const FacultyOpenRegistrationPage({
+    super.key,
+    this.username,
+    this.fullName,
+    this.email,
+  });
 
   @override
   Widget build(BuildContext context) {
     // Exact colors extracted from your updated UI image
-    const Color pageBackgroundColor = Color(0xFFDCE6F5); // Soft grayish blue tint
-    const Color darkBlueText = Color(0xFF000000);        // Pure dark text for headings
-    const Color manageRegTextColor = Color(0xFF0B467F);  // Deep slate blue for Manage text
-    const Color viewPartTextColor = Color(0xFF700A0A);   // Deep wine red/maroon for View text
+    const Color pageBackgroundColor = Color(0xFFDCE6F5);
+    const Color darkBlueText = Color(0xFF000000);
+    const Color manageRegTextColor = Color(0xFF0B467F);
+    const Color viewPartTextColor = Color(0xFF700A0A);
+
+    // ✅ Use provided user data or fallback
+    final String displayName = fullName ?? username ?? 'Faculty Registrar';
 
     return Scaffold(
       backgroundColor: pageBackgroundColor,
@@ -21,7 +33,7 @@ class FacultyOpenRegistrationPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Custom Header Navigation Row (Replaces traditional AppBar)
+              // ✅ Custom Header Navigation Row (with user name)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -32,7 +44,7 @@ class FacultyOpenRegistrationPage extends StatelessWidget {
                     },
                   ),
                   DropdownButton<String>(
-                    value: 'ALI BIN ABU',
+                    value: displayName,
                     underline: const SizedBox(),
                     icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF1375D6), size: 20),
                     style: const TextStyle(
@@ -40,10 +52,10 @@ class FacultyOpenRegistrationPage extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
-                        value: 'ALI BIN ABU',
-                        child: Text('ALI BIN ABU'),
+                        value: displayName,
+                        child: Text(displayName),
                       ),
                     ],
                     onChanged: (value) {},
@@ -112,7 +124,7 @@ class FacultyOpenRegistrationPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: Color.fromRGBO(0, 0, 0, 0.08),
+                        color: const Color.fromRGBO(0, 0, 0, 0.08),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -121,7 +133,6 @@ class FacultyOpenRegistrationPage extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
                     children: [
-                      // Substituted clean vector line-art representation for the layout icon
                       const Icon(
                         Icons.menu_book_rounded,
                         size: 48,
@@ -154,7 +165,7 @@ class FacultyOpenRegistrationPage extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 48), // Padding balanced to mirror layout symmetry
+                      const SizedBox(width: 48),
                     ],
                   ),
                 ),
@@ -179,7 +190,7 @@ class FacultyOpenRegistrationPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: Color.fromRGBO(0, 0, 0, 0.08),
+                        color: const Color.fromRGBO(0, 0, 0, 0.08),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),

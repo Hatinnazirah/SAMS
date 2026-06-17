@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum RegistrationStatus { pending, approve, reject }
 
@@ -36,6 +37,74 @@ class RegistrationModel {
     this.lectureSection,
     this.labSection,
   });
+
+  // ============ FIREBASE METHODS ============
+
+  // Create from Firestore document
+  factory RegistrationModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    
+    return RegistrationModel(
+      registrationId: doc.id,
+      studentId: data['StudentId'] ?? '',
+      subjectId: data['SubjectId'] ?? '',
+      studentName: data['StudentName'] ?? '',
+      matricId: data['MatricId'] ?? '',
+      subjectCode: data['SubjectCode'] ?? '',
+      subjectName: data['SubjectName'] ?? '',
+      creditHours: _toInt(data['CreditHours']),
+      status: _stringToStatus(data['Status'] ?? 'pending'),
+      registrationDate: (data['RegistrationDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      rejectionReason: data['RejectionReason'],
+      approvedDate: (data['ApprovedDate'] as Timestamp?)?.toDate(),
+      rejectedDate: (data['RejectedDate'] as Timestamp?)?.toDate(),
+      lectureSection: data['LectureSection'] ?? 'N/A',
+      labSection: data['LabSection'] ?? 'N/A',
+    );
+  }
+
+  // Convert to Firestore map
+  Map<String, dynamic> toFirestore() {
+    return {
+      'StudentId': studentId,
+      'SubjectId': subjectId,
+      'StudentName': studentName,
+      'MatricId': matricId,
+      'SubjectCode': subjectCode,
+      'SubjectName': subjectName,
+      'CreditHours': creditHours,
+      'Status': status.name,
+      'RegistrationDate': FieldValue.serverTimestamp(),
+      'RejectionReason': rejectionReason,
+      'ApprovedDate': approvedDate != null ? Timestamp.fromDate(approvedDate!) : null,
+      'RejectedDate': rejectedDate != null ? Timestamp.fromDate(rejectedDate!) : null,
+      'LectureSection': lectureSection,
+      'LabSection': labSection,
+    };
+  }
+
+  // ============ HELPER METHODS ============
+
+  static int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
+  }
+
+  static RegistrationStatus _stringToStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return RegistrationStatus.approve;
+      case 'rejected':
+        return RegistrationStatus.reject;
+      default:
+        return RegistrationStatus.pending;
+    }
+  }
+
+  // ============ EXISTING METHODS ============
 
   factory RegistrationModel.fromJson(Map<String, dynamic> json) {
     return RegistrationModel(
@@ -115,20 +184,24 @@ class RegistrationModel {
   }
 }
 
+// ============ SUBJECT MODEL WITH FIREBASE ============
+
 class SubjectModel {
   final String subjectId;
   final String subjectCode;
   final String subjectName;
   final int creditHours;
-  final String scheduleDay;
-  final String scheduleStartTime;
-  final String scheduleEndTime;
+  final List<String> scheduleDay;         // ← NOW ARRAY
+  final List<String> scheduleStartTime;   // ← NOW ARRAY
+  final List<String> scheduleEndTime;     // ← NOW ARRAY
   final String venue;
   final String facultyOffered;
   final String programOffered;
   final String lecturerName;
   final int maxCapacity;
   final int currentEnrolled;
+  final List<String> lectureSections;
+  final List<String> labSections;
 
   SubjectModel({
     required this.subjectId,
@@ -144,7 +217,54 @@ class SubjectModel {
     required this.lecturerName,
     required this.maxCapacity,
     required this.currentEnrolled,
+    this.lectureSections = const ['01', '02'],
+    this.labSections = const ['01A', '01B'],
   });
+
+  // ============ FIREBASE METHODS ============
+
+  // Helper to convert Firebase data to List<String>
+  static List<String> _toList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    return [value.toString()];
+  }
+
+  // Helper to convert to int
+  static int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
+  }
+
+  // Create from Firestore document
+  factory SubjectModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    
+    return SubjectModel(
+      subjectId: data['SubjectID'] ?? doc.id,
+      subjectCode: data['SubjectCode'] ?? '',
+      subjectName: data['SubjectName'] ?? '',
+      creditHours: _toInt(data['CreditHours']),
+      scheduleDay: _toList(data['ScheduleDay']),
+      scheduleStartTime: _toList(data['ScheduleStartTime']),
+      scheduleEndTime: _toList(data['ScheduleEndTime']),
+      venue: data['Venue'] ?? '',
+      facultyOffered: data['FacultyOffered'] ?? '',
+      programOffered: data['ProgramOffered'] ?? '',
+      lecturerName: data['LecturerName'] ?? '',
+      maxCapacity: _toInt(data['MaxCapacity']),
+      currentEnrolled: _toInt(data['CurrentEnrolled']),
+      lectureSections: _toList(data['LectureSection']),
+      labSections: _toList(data['LabSection']),
+    );
+  }
+
+  // ============ EXISTING METHODS ============
 
   factory SubjectModel.fromJson(Map<String, dynamic> json) {
     return SubjectModel(
@@ -152,22 +272,42 @@ class SubjectModel {
       subjectCode: json['SubjectCode'] as String,
       subjectName: json['SubjectName'] as String,
       creditHours: json['CreditHours'] as int,
-      scheduleDay: json['ScheduleDay'] as String,
-      scheduleStartTime: json['ScheduleStartTime'] as String,
-      scheduleEndTime: json['ScheduleEndTime'] as String,
+      scheduleDay: (json['ScheduleDay'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      scheduleStartTime: (json['ScheduleStartTime'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      scheduleEndTime: (json['ScheduleEndTime'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       venue: json['Venue'] as String,
       facultyOffered: json['FacultyOffered'] as String,
       programOffered: json['ProgramOffered'] as String,
       lecturerName: json['LecturerName'] as String,
       maxCapacity: json['MaxCapacity'] as int,
       currentEnrolled: json['CurrentEnrolled'] as int,
+      lectureSections: (json['LectureSection'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? ['01', '02'],
+      labSections: (json['LabSection'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? ['01A', '01B'],
     );
   }
 
+  // Helper to get first element of schedule arrays
+  String get firstScheduleDay => scheduleDay.isNotEmpty ? scheduleDay[0] : 'N/A';
+  String get firstScheduleStartTime => scheduleStartTime.isNotEmpty ? scheduleStartTime[0] : 'N/A';
+  String get firstScheduleEndTime => scheduleEndTime.isNotEmpty ? scheduleEndTime[0] : 'N/A';
+
+  // Get schedule for a specific index
+  String getScheduleDay(int index) => scheduleDay.length > index ? scheduleDay[index] : 'N/A';
+  String getScheduleStartTime(int index) => scheduleStartTime.length > index ? scheduleStartTime[index] : 'N/A';
+  String getScheduleEndTime(int index) => scheduleEndTime.length > index ? scheduleEndTime[index] : 'N/A';
+
   int get availableSlots => maxCapacity - currentEnrolled;
-  String get scheduleDisplay =>
-      "$scheduleDay $scheduleStartTime - $scheduleEndTime";
+  
+  String get scheduleDisplay {
+    if (scheduleDay.isEmpty) return 'N/A';
+    final day = scheduleDay[0];
+    final start = scheduleStartTime.isNotEmpty ? scheduleStartTime[0] : 'N/A';
+    final end = scheduleEndTime.isNotEmpty ? scheduleEndTime[0] : 'N/A';
+    return "$day $start - $end";
+  }
 }
+
+// ============ STUDENT MODEL ============
 
 class StudentModel {
   final String studentId;
@@ -198,5 +338,26 @@ class StudentModel {
       semester: json['Semester'] as int,
       studentFaculty: json['StudentFaculty'] as String,
     );
+  }
+
+  // Firebase method
+  factory StudentModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return StudentModel(
+      studentId: data['StudentID'] ?? doc.id,
+      userId: data['UserID'] ?? '',
+      studentName: data['StudentName'] ?? '',
+      matricId: data['MatricID'] ?? '',
+      studentProgram: data['StudentProgram'] ?? '',
+      semester: _toInt(data['Semester']),
+      studentFaculty: data['StudentFaculty'] ?? '',
+    );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 }

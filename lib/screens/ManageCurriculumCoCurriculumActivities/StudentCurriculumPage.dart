@@ -4,6 +4,7 @@ import 'MySubjectsPage.dart';
 import 'ActivitiesPage.dart';
 import 'CreditClaimPage.dart';
 
+
 class StudentCurriculumPage extends StatelessWidget {
   final String matricId = "CB23048";
 

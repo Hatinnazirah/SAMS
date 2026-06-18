@@ -1,9 +1,14 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'screens/ManageCurriculumCoCurriculumActivities/StudentCurriculumPage.dart';
 import 'PusatAdabDashboard.dart';
 import 'TreasuryDashboard.dart';
+import 'StudentDashboard.dart';
+import 'screens/ManageStudentFeePayment/StudentFeeDashboard.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
@@ -36,7 +41,7 @@ class RoleSelector extends StatelessWidget {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => StudentCurriculumPage(),
+                builder: (context) => StudentDashboard(),
               ),
             );
           },
@@ -61,7 +66,37 @@ class RoleSelector extends StatelessWidget {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => PusatAdabDashboard(),
+                builder: (context) => const StudentFeeDashboard(
+                  studentID: 'CB23048',
+                ),
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.purple,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 40,
+              vertical: 15,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+          child: const Text(
+            'Student Fee',
+            style: TextStyle(fontSize: 18),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PusatAdabDashboard(),
               ),
             );
           },

@@ -5,7 +5,6 @@ import 'package:sams_app/screens/ManageCurriculumCoCurriculumActivities/Activiti
 import 'package:sams_app/screens/ManageCurriculumCoCurriculumActivities/CreditClaimPage.dart';
 import 'package:sams_app/screens/ManageCurriculumCoCurriculumActivities/ModuleBookingPage.dart';
 
-
 class StudentDashboard extends StatelessWidget {
   final String matricId = "CB23048";
 

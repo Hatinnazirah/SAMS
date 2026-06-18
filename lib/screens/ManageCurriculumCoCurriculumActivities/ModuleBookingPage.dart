@@ -29,112 +29,129 @@ class _ModuleBookingPageState extends State<ModuleBookingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true,
-      backgroundColor: const Color(0xFFE1E9F6), // Matches background of Picture 2
+      backgroundColor: const Color(0xFFDCE5F4), // Exact matching background color
       body: SafeArea(
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
-              // Custom Top Header Action Bar (Replaces default Teal AppBar)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.black, size: 24),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          matricId,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 16),
+                
+                // Top Header - Matric ID Placement
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        matricId,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1C274C),
                         ),
-                        const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.black54),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.keyboard_arrow_down, 
+                        size: 18, 
+                        color: Color(0xFF2979FF)
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                // Main Title
+                const Text(
+                  'MODULE BOOKING',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800, // This is Flutter's equivalent for extra bold
+                    color: Colors.black,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 25),
+
+                // UMPSA Logo (Central Circle)
+                Center(
+                  child: Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-
-              // Title Section
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'MODULE BOOKING',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                        letterSpacing: 0.5,
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/icons/sams_logo.png', // Your asset path
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          // Fallback container matching UI design theme if asset is missing
+                          return Container(
+                            color: const Color(0xFF0D3E73),
+                            child: const Icon(
+                              Icons.school,
+                              size: 70,
+                              color: Colors.white,
+                            ),
+                          );
+                        },
                       ),
-                    ),
-                    const SizedBox(height: 15),
-                    
-                    // Circular Logo Container
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFF0D3E73), // Deep Blue tint matching background of logo
-                      ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/icons/sams_logo.png',
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                  ],
-                ),
-              ),
-
-              // Content Items Section
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.only(top: 50.0),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (_modules.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: 50.0),
-                  child: Center(
-                    child: Text(
-                      'No modules available',
-                      style: TextStyle(fontSize: 16, color: Colors.black54),
                     ),
                   ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    children: _modules.map((module) {
+                ),
+                const SizedBox(height: 45),
+
+                // Module List Layout
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 50),
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D3E73)),
+                    ),
+                  )
+                else if (_modules.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 50),
+                    child: Column(
+                      children: [
+                        Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                        SizedBox(height: 12),
+                        Text(
+                          'No modules available',
+                          style: TextStyle(fontSize: 15, color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _modules.length,
+                    itemBuilder: (context, index) {
+                      final module = _modules[index];
                       return Container(
-                        width: double.infinity, // Ensures the pill stretches symmetrically across width
-                        margin: const EdgeInsets.only(bottom: 12),
+                        margin: const EdgeInsets.only(bottom: 14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF2F5FA), // Crisp light background for buttons
-                          borderRadius: BorderRadius.circular(30), // True Pill Rounded corners
+                          color: const Color(0xFFF4F7FC), // Clean white-ish tone for capsules
+                          borderRadius: BorderRadius.circular(30), // Perfect pill shape
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.06),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
@@ -149,24 +166,24 @@ class _ModuleBookingPageState extends State<ModuleBookingPage> {
                             );
                           },
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 24.0),
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
                             child: Text(
-                              '${module.ModuleCode}   ${module.ModuleName.toUpperCase()}',
+                              '${module.ModuleCode}  ${module.ModuleName.toUpperCase()}',
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                                letterSpacing: 0.2,
+                                color: Color(0xFF2C3E50),
+                                letterSpacing: 0.3,
                               ),
                             ),
                           ),
                         ),
                       );
-                    }).toList(),
+                    },
                   ),
-                ),
-              const SizedBox(height: 40),
-            ],
+                const SizedBox(height: 30),
+              ],
+            ),
           ),
         ),
       ),

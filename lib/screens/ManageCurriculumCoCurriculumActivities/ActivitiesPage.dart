@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../controllers/ManageCurriculumCoCurriculumActivities/StudentController.dart';
 import 'ActivitySubmissionPage.dart';
 
 class ActivitiesPage extends StatefulWidget {
@@ -7,64 +8,27 @@ class ActivitiesPage extends StatefulWidget {
 }
 
 class _ActivitiesPageState extends State<ActivitiesPage> {
+  final StudentController _controller = StudentController();
   final String matricId = "CB23048";
-  bool _isLoading = false;
+  bool _isLoading = true;
   
-  List<Map<String, dynamic>> _activities = [
-    {
-      'id': '1',
-      'moduleCode': 'HQD3062',
-      'moduleName': 'EDIT LIKE A PRO WITH CANVA',
-      'activityName': 'Creative Poster Design Assignment',
-      'openedDate': '21/12/2024',
-      'dueDate': '28/12/2024',
-      'status': 'pending',
-      'description': 'Create a creative poster using Canva. Theme: Environmental Awareness',
-      'instructions': 'Submit your poster in PDF format. Include your name and matrix number.',
-    },
-    {
-      'id': '2',
-      'moduleCode': 'UHS1221',
-      'moduleName': 'THEATRE',
-      'activityName': 'Acting & Performance Reflection',
-      'openedDate': '21/12/2024',
-      'dueDate': '28/12/2024',
-      'status': 'pending',
-      'description': 'Write a reflection on your acting performance',
-      'instructions': 'Submit in DOC or PDF format, minimum 500 words.',
-    },
-    {
-      'id': '3',
-      'moduleCode': 'HQS3012',
-      'moduleName': 'ASAS CATUR',
-      'activityName': 'Chess Gameplay Report',
-      'openedDate': '21/12/2024',
-      'dueDate': '28/12/2024',
-      'status': 'submitted',
-      'description': 'Report on your chess gameplay strategies',
-      'instructions': 'Submit your report with analysis of 3 games.',
-    },
-    {
-      'id': '4',
-      'moduleCode': 'HQD3022',
-      'moduleName': 'MOBILE PHONE PHOTOGRAPHY',
-      'activityName': 'Photo Collection Submission',
-      'openedDate': '21/12/2024',
-      'dueDate': '28/12/2024',
-      'status': 'submitted',
-      'description': 'Submit 5 photos with theme "Nature"',
-      'instructions': 'Photos must be original and high resolution.',
-    },
-  ];
+  List<Map<String, dynamic>> _activities = [];
 
-  // Method to update activity status when coming back from submission
-  void _updateActivityStatus(String activityId) {
-    setState(() {
-      final index = _activities.indexWhere((a) => a['id'] == activityId);
-      if (index != -1) {
-        _activities[index]['status'] = 'submitted';
-      }
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadActivities();
+  }
+
+  Future<void> _loadActivities() async {
+    setState(() => _isLoading = true);
+    print("🔴🔴🔴 Loading activities for student: $matricId");
+    _activities = await _controller.getAssignedActivities(matricId);
+    print("🔴🔴🔴 Activities loaded: ${_activities.length}");
+    for (var activity in _activities) {
+      print("🔴🔴🔴 Activity: ${activity['moduleCode']} - ${activity['moduleName']} - ${activity['activityName']} - Status: ${activity['status']} - Score: ${activity['score']}");
+    }
+    setState(() => _isLoading = false);
   }
 
   @override
@@ -74,6 +38,7 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
       body: SafeArea(
         child: Column(
           children: [
+            // Top Header
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Row(
@@ -116,130 +81,171 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
                   ? const Center(child: CircularProgressIndicator())
                   : _activities.isEmpty
                       ? const Center(
-                          child: Text(
-                            'No activities assigned',
-                            style: TextStyle(fontSize: 16, color: Colors.black54),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.assignment_outlined, size: 60, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text(
+                                'No activities assigned',
+                                style: TextStyle(fontSize: 16, color: Colors.black54),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Please register for modules first',
+                                style: TextStyle(fontSize: 14, color: Colors.grey),
+                              ),
+                            ],
                           ),
                         )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: _activities.length,
-                          itemBuilder: (context, index) {
-                            final activity = _activities[index];
-                            final isSubmitted = activity['status'] == 'submitted';
-                            
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.06),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '${activity['moduleCode']}  ${activity['moduleName']}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            activity['activityName'],
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'Opened: Saturday, ${activity['openedDate']}, 11:59 PM',
-                                            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            'Due: Saturday, ${activity['dueDate']}, 11:59 PM',
-                                            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                                          ),
-                                        ],
-                                      ),
+                      : RefreshIndicator(
+                          onRefresh: _loadActivities,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            itemCount: _activities.length,
+                            itemBuilder: (context, index) {
+                              final activity = _activities[index];
+                              
+                              // Status logic
+                              final isSubmitted = activity['status'] == 'submitted';
+                              final isGraded = activity['status'] == 'graded';
+                              final isNotStarted = activity['status'] == 'not_started';
+                              final score = activity['score'];
+                              
+                              String buttonText = 'ADD SUBMISSION';
+                              Color buttonColor = const Color(0xFF1976D2);
+                              bool buttonEnabled = true;
+                              
+                              if (isGraded) {
+                                buttonText = 'GRADED ✓';
+                                buttonColor = const Color(0xFF00B000);
+                                buttonEnabled = false;
+                              } else if (isSubmitted) {
+                                buttonText = 'PENDING';
+                                buttonColor = const Color(0xFFFF9200);
+                                buttonEnabled = false;
+                              } else if (isNotStarted) {
+                                buttonText = 'ADD SUBMISSION';
+                                buttonColor = const Color(0xFF1976D2);
+                                buttonEnabled = true;
+                              }
+                              
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
                                     ),
-                                    const SizedBox(width: 8),
-                                    
-                                    isSubmitted
-                                        ? ElevatedButton(
-                                            onPressed: () {},
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFF00B000),
-                                              foregroundColor: Colors.white,
-                                              elevation: 0,
-                                              minimumSize: const Size(100, 38),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(18),
-                                              ),
-                                            ),
-                                            child: const Text(
-                                              'DONE',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          )
-                                        : ElevatedButton(
-                                            onPressed: () async {
-                                              final result = await Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) => ActivitySubmissionPage(
-                                                    activity: activity,
-                                                  ),
-                                                ),
-                                              );
-                                              // If submission was successful, update status
-                                              if (result == true) {
-                                                _updateActivityStatus(activity['id']);
-                                              }
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFF1976D2),
-                                              foregroundColor: Colors.white,
-                                              elevation: 0,
-                                              minimumSize: const Size(130, 38),
-                                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(18),
-                                              ),
-                                            ),
-                                            child: const Text(
-                                              'ADD SUBMISSION',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ),
                                   ],
                                 ),
-                              ),
-                            );
-                          },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${activity['moduleCode']}  ${activity['moduleName']}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                color: Colors.black,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              activity['activityName'] ?? 'Activity Submission',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            if (activity['openedDate'] != null && activity['openedDate'].isNotEmpty)
+                                              Text(
+                                                'Opened: ${activity['openedDate']}',
+                                                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                                              ),
+                                            if (activity['dueDate'] != null && activity['dueDate'].isNotEmpty)
+                                              Text(
+                                                'Due: ${activity['dueDate']}',
+                                                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                                              ),
+                                            // Show score if graded
+                                            if (isGraded && score != null)
+                                              Text(
+                                                'Score: $score/100',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.teal,
+                                                ),
+                                              ),
+                                            if (isSubmitted)
+                                              const Text(
+                                                'Waiting for grading...',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontStyle: FontStyle.italic,
+                                                  color: Colors.orange,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      
+                                      ElevatedButton(
+                                        onPressed: buttonEnabled
+                                            ? () async {
+                                                final result = await Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => ActivitySubmissionPage(
+                                                      activity: activity,
+                                                    ),
+                                                  ),
+                                                );
+                                                if (result == true) {
+                                                  _loadActivities();
+                                                }
+                                              }
+                                            : null,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: buttonColor,
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                          minimumSize: const Size(130, 38),
+                                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(18),
+                                          ),
+                                          disabledBackgroundColor: buttonColor,
+                                          disabledForegroundColor: Colors.white,
+                                        ),
+                                        child: Text(
+                                          buttonText,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
             ),
           ],

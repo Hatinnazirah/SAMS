@@ -23,17 +23,12 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
   final PusatAdabController _controller = PusatAdabController();
   final String staffId = "PUSAT ADAB";
   
-  // State map tracking submission grading completions dynamically
-  final Map<String, bool> _gradedStatuses = {};
+  late List<Map<String, dynamic>> _submissions;
 
   @override
   void initState() {
     super.initState();
-    // Initialize all student list items as ungraded initially
-    for (var submission in widget.submissions) {
-      final id = submission['submissionId']?.toString() ?? '';
-      _gradedStatuses[id] = false;
-    }
+    _submissions = List.from(widget.submissions);
   }
 
   void _viewDocument(String documentUrl) {
@@ -58,7 +53,6 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
     );
   }
 
-  // Popup dialog implemented to match your mockup design exactly
   void _openGradingDialog(Map<String, dynamic> submission) {
     final TextEditingController scoreController = TextEditingController();
     final String submissionId = submission['submissionId']?.toString() ?? '';
@@ -118,7 +112,7 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
               ),
               const SizedBox(height: 16),
               
-              // Centered Total Marks Entry Input Fields
+              // Total Marks Input
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -142,7 +136,6 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
                           borderSide: BorderSide(color: Color(0xFF009639), width: 2),
                         ),
                         enabledBorder: UnderlineInputBorder(
-                          // Fixed: Replaced invalid getter Colors.black25 with explicit opacity rule
                           borderSide: BorderSide(color: Colors.black.withOpacity(0.25)),
                         ),
                       ),
@@ -152,13 +145,13 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
               ),
               const SizedBox(height: 24),
               
-              // Forest green pill submission confirmation action button
+              // Submit Button
               SizedBox(
                 height: 36,
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF009639), // Forest Green Fill color
+                    backgroundColor: const Color(0xFF009639),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -181,10 +174,19 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
                     
                     if (success) {
                       setState(() {
-                        _gradedStatuses[submissionId] = true;
+                        // Update local submission status
+                        final index = _submissions.indexWhere((s) => s['submissionId'] == submissionId);
+                        if (index != -1) {
+                          _submissions[index]['isGraded'] = true;
+                          _submissions[index]['score'] = score;
+                        }
                       });
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Grade successfully submitted for $studentName!')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Failed to submit grade. Please try again.')),
                       );
                     }
                   },
@@ -205,7 +207,7 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Screen Header Bar Toolbar
+            // Header
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
               child: Row(
@@ -252,19 +254,11 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
                 color: Colors.black54,
               ),
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'Photo Collection Submission',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.black45,
-              ),
-            ),
             const SizedBox(height: 20),
 
-            // Card Builder Node Elements
+            // Submissions List
             Expanded(
-              child: widget.submissions.isEmpty
+              child: _submissions.isEmpty
                   ? const Center(
                       child: Text(
                         'No submissions for this module',
@@ -273,11 +267,10 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      itemCount: widget.submissions.length,
+                      itemCount: _submissions.length,
                       itemBuilder: (context, index) {
-                        final submission = widget.submissions[index];
-                        final String subId = submission['submissionId']?.toString() ?? '';
-                        final bool isGraded = _gradedStatuses[subId] ?? false;
+                        final submission = _submissions[index];
+                        final bool isGraded = submission['isGraded'] ?? false;
                         
                         return Container(
                           width: double.infinity,
@@ -316,18 +309,29 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'Uploaded File: ${submission['documentUrl'] ?? 'Assignment1.pdf'}',
+                                'Activity: ${submission['activityName'] ?? ''}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.black54,
                                 ),
                               ),
+                              if (isGraded && submission['score'] != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    'Score: ${submission['score']}/100',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal,
+                                    ),
+                                  ),
+                                ),
                               const SizedBox(height: 16),
                               
-                              // Horizontal Flex Row Layout
+                              // Buttons Row
                               Row(
                                 children: [
-                                  // VIEW Button Block
                                   Expanded(
                                     child: SizedBox(
                                       height: 36,
@@ -346,7 +350,6 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   
-                                  // DOWNLOAD Button Block
                                   Expanded(
                                     child: SizedBox(
                                       height: 36,
@@ -365,18 +368,17 @@ class _GradeActivitiesListPageState extends State<GradeActivitiesListPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   
-                                  // GRADE -> GRADED Interactive State Transition Block
                                   Expanded(
                                     child: SizedBox(
                                       height: 36,
                                       child: ElevatedButton(
                                         onPressed: isGraded 
-                                            ? null // Disables button automatically when graded
+                                            ? null
                                             : () => _openGradingDialog(submission),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: isGraded 
-                                              ? const Color(0xFF7A7A7A) // Matte Slate Grey style matching mockups
-                                              : const Color(0xFF009639), // Vibrant Active green color
+                                              ? const Color(0xFF7A7A7A)
+                                              : const Color(0xFF009639),
                                           foregroundColor: Colors.white,
                                           disabledBackgroundColor: const Color(0xFF7A7A7A),
                                           disabledForegroundColor: Colors.white70,

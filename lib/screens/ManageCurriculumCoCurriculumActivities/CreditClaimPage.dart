@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../controllers/ManageCurriculumCoCurriculumActivities/StudentController.dart';
 
 class CreditClaimPage extends StatefulWidget {
   @override
@@ -7,77 +8,34 @@ class CreditClaimPage extends StatefulWidget {
 
 class _CreditClaimPageState extends State<CreditClaimPage> {
   final String matricId = "CB23048";
-  bool _isLoading = false;
+  final StudentController _controller = StudentController();
+  bool _isLoading = true;
   bool _isSubmitting = false;
-  
-  // REMOVED 'final' keyword so it can be modified
-  List<Map<String, dynamic>> _completedModules = [
-    {
-      'id': '1',
-      'moduleCode': 'HQD3062',
-      'moduleName': 'EDIT LIKE A PRO WITH CANVA',
-      'classDate': '2 May 2026',
-      'startTime': '08:00 AM',
-      'endTime': '05:00 PM',
-      'credits': 3,
-      'isSelected': false,
-      'claimStatus': 'not_claimed',
-    },
-    {
-      'id': '2',
-      'moduleCode': 'HQP3022',
-      'moduleName': 'PENGURUSAN MAJLIS',
-      'classDate': '6/12/2025',
-      'startTime': '08:00 AM',
-      'endTime': '05:00 PM',
-      'credits': 2,
-      'isSelected': false,
-      'claimStatus': 'not_claimed',
-    },
-    {
-      'id': '3',
-      'moduleCode': 'UHS1221',
-      'moduleName': 'THEATRE',
-      'classDate': '31/05/2025',
-      'startTime': '08:00 AM',
-      'endTime': '05:00 PM',
-      'credits': 1,
-      'isSelected': false,
-      'claimStatus': 'not_claimed',
-    },
-    {
-      'id': '4',
-      'moduleCode': 'HQS3012',
-      'moduleName': 'ASAS CATUR',
-      'classDate': '24/05/2025',
-      'startTime': '08:00 AM',
-      'endTime': '05:00 PM',
-      'credits': 2,
-      'isSelected': false,
-      'claimStatus': 'not_claimed',
-    },
-    {
-      'id': '5',
-      'moduleCode': 'HQD3022',
-      'moduleName': 'MOBILE PHONE PHOTOGRAPHY',
-      'classDate': '21/12/2024',
-      'startTime': '08:00 AM',
-      'endTime': '05:00 PM',
-      'credits': 3,
-      'isSelected': false,
-      'claimStatus': 'not_claimed',
-    },
-  ];
+
+  List<Map<String, dynamic>> _claimableModules = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClaimableModules();
+  }
+
+  Future<void> _loadClaimableModules() async {
+    setState(() => _isLoading = true);
+    _claimableModules = await _controller.getClaimableModules(matricId);
+    setState(() => _isLoading = false);
+  }
 
   void _toggleSelection(int index) {
     setState(() {
-      _completedModules[index]['isSelected'] = !_completedModules[index]['isSelected'];
+      _claimableModules[index]['isSelected'] =
+          !(_claimableModules[index]['isSelected'] ?? false);
     });
   }
 
   void _selectAll() {
     setState(() {
-      for (var module in _completedModules) {
+      for (var module in _claimableModules) {
         if (module['claimStatus'] == 'not_claimed') {
           module['isSelected'] = true;
         }
@@ -87,19 +45,22 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
 
   void _deselectAll() {
     setState(() {
-      for (var module in _completedModules) {
+      for (var module in _claimableModules) {
         module['isSelected'] = false;
       }
     });
   }
 
   Future<void> _submitClaims() async {
-    List<Map<String, dynamic>> selectedModules = 
-        _completedModules.where((m) => m['isSelected'] == true).toList();
-    
+    List<Map<String, dynamic>> selectedModules = _claimableModules
+        .where((m) => m['isSelected'] == true)
+        .toList();
+
     if (selectedModules.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one module to claim')),
+        const SnackBar(
+          content: Text('Please select at least one module to claim'),
+        ),
       );
       return;
     }
@@ -108,17 +69,34 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
       _isSubmitting = true;
     });
 
-    await Future.delayed(const Duration(seconds: 2));
+    bool allSuccess = true;
+
+    for (var module in selectedModules) {
+      bool success = await _controller.submitCreditClaim(
+        matricId,
+        module['moduleCode'],
+        module['credits'] ?? 1,
+      );
+      if (!success) {
+        allSuccess = false;
+      }
+    }
 
     setState(() {
-      for (var module in selectedModules) {
-        module['claimStatus'] = 'pending';
-        module['isSelected'] = false;
-      }
       _isSubmitting = false;
     });
 
-    _showSuccessDialog(selectedModules.length);
+    if (allSuccess) {
+      _showSuccessDialog(selectedModules.length);
+      _loadClaimableModules();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Some claims failed to submit. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showSuccessDialog(int count) {
@@ -173,9 +151,15 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 40,
+                      vertical: 12,
+                    ),
                   ),
-                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'OK',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -202,7 +186,7 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
           ),
         ),
       );
-    } else if (status == 'approved') {
+    } else if (status == 'approve' || status == 'approved') {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
@@ -210,7 +194,7 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: const Text(
-          'APPROVED',
+          'APPROVED ✓',
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,
@@ -218,7 +202,7 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
           ),
         ),
       );
-    } else if (status == 'rejected') {
+    } else if (status == 'reject' || status == 'rejected') {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
@@ -226,7 +210,7 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: const Text(
-          'REJECTED',
+          'REJECTED ✗',
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,
@@ -245,13 +229,21 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
       body: SafeArea(
         child: Column(
           children: [
+            // Top Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.black,
+                      size: 28,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                   Row(
@@ -264,13 +256,17 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
                           color: Colors.black87,
                         ),
                       ),
-                      const Icon(Icons.keyboard_arrow_down, color: Colors.blue, size: 20),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
-            
+
             const Text(
               'CREDIT CLAIM',
               style: TextStyle(
@@ -281,7 +277,8 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
+            // Select All / Deselect All
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -298,105 +295,191 @@ class _CreditClaimPageState extends State<CreditClaimPage> {
                 ],
               ),
             ),
-            
+
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      itemCount: _completedModules.length,
-                      itemBuilder: (context, index) {
-                        final module = _completedModules[index];
-                        final isClaimed = module['claimStatus'] != 'not_claimed';
-                        
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
+                  : _claimableModules.isEmpty
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.credit_card_off,
+                                size: 60,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'No modules available for credit claim',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Complete and get graded first',
+                                style: TextStyle(fontSize: 14, color: Colors.grey),
                               ),
                             ],
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                if (!isClaimed)
-                                  Checkbox(
-                                    value: module['isSelected'],
-                                    onChanged: (value) => _toggleSelection(index),
-                                    activeColor: const Color(0xFF1976D2),
-                                  )
-                                else
-                                  const SizedBox(width: 40),
-                                
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadClaimableModules,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            itemCount: _claimableModules.length,
+                            itemBuilder: (context, index) {
+                              final module = _claimableModules[index];
+                              final claimStatus = module['claimStatus'] ?? 'not_claimed';
+                              final isClaimed = claimStatus != 'not_claimed';
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        '${module['moduleCode']} ${module['moduleName']}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: Colors.black,
+                                      if (!isClaimed)
+                                        Checkbox(
+                                          value: module['isSelected'] ?? false,
+                                          onChanged: (value) =>
+                                              _toggleSelection(index),
+                                          activeColor: const Color(0xFF1976D2),
+                                        )
+                                      else
+                                        const SizedBox(width: 40),
+
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${module['moduleCode']}  ${module['moduleName']}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: Colors.black,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              module['activityName'] ?? 'Activity',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  'Credits: ${module['credits']}',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.teal,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                if (module['score'] != null)
+                                                  Text(
+                                                    'Score: ${module['score']}/100',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: Colors.green[700],
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            if (claimStatus == 'pending')
+                                              const Text(
+                                                'Waiting for verification...',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontStyle: FontStyle.italic,
+                                                  color: Colors.orange,
+                                                ),
+                                              ),
+                                            if (claimStatus == 'approve' ||
+                                                claimStatus == 'approved')
+                                              const Text(
+                                                'Credit approved!',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.green,
+                                                ),
+                                              ),
+                                            if (claimStatus == 'reject' ||
+                                                claimStatus == 'rejected')
+                                              const Text(
+                                                'Credit rejected',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Class Date: ${module['classDate']}',
-                                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                                      ),
-                                      Text(
-                                        '${module['startTime']} - ${module['endTime']}',
-                                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                                      ),
-                                      Text(
-                                        'Credits: ${module['credits']}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.teal,
+
+                                      if (isClaimed)
+                                        _buildStatusChip(claimStatus)
+                                      else
+                                        ElevatedButton(
+                                          onPressed: () => _toggleSelection(index),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                module['isSelected'] == true
+                                                ? const Color(0xFF00B000)
+                                                : const Color(0xFF1976D2),
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(70, 32),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(
+                                                18,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            module['isSelected'] == true
+                                                ? 'SELECTED'
+                                                : 'CLAIM',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                            ),
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ),
-                                
-                                if (isClaimed)
-                                  _buildStatusChip(module['claimStatus'])
-                                else
-                                  ElevatedButton(
-                                    onPressed: () => _toggleSelection(index),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF1976D2),
-                                      foregroundColor: Colors.white,
-                                      minimumSize: const Size(70, 32),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      module['isSelected'] ? 'SELECTED' : 'CLAIM',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
+                        ),
             ),
-            
+
+            // Submit Button
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(

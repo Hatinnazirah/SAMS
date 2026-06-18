@@ -177,7 +177,7 @@ class RecordPaymentPage extends StatelessWidget {
                               ),
 
                               Text(
-                                "Reference No : ${payment['ReferenceNo'] ?? ''}",
+                                "Reference No : ${payment['PaymentID'] ?? ''}",
                               ),
 
                               Text(
